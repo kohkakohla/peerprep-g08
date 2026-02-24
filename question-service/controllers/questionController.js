@@ -64,10 +64,23 @@ const updateQuestion = async (req, res) => {
     }
 }
 
+// @desc    Delete a question
+// @route   DELETE /api/questions/:id
+// @access  Public
+deleteQuestion = async (req, res) => {
+    try {
+        const deletedQuestion = await Question.findById(req.params.id)
+        await deletedQuestion.deleteOne()
+        res.status(200).json({ message: "Question deleted successfully" })
+    } catch (err) {
+        res.status(400).json({ message: "Invalid question ID" })
+    }
+}
 
 
 module.exports = {
     getAllQuestions,
     addQuestion,
     updateQuestion,
+    deleteQuestion,
 }
