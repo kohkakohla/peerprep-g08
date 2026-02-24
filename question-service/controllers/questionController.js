@@ -33,10 +33,41 @@ const addQuestion = async (req, res) => {
     } catch (err) {
         res.status(400).json({ message: err.message })
     }   
-}   
+}
+
+// @desc    Update a question
+// @route   PUT /api/questions/:id
+// @access  Public
+const updateQuestion = async (req, res) => {
+    const { title, question, answer, difficulty, category, tags, examples } = req.body
+
+    if (!title || !question || !answer || !difficulty || !category) {
+        res.status(400).json({ message: 'Please provide all required fields' })
+        return
+    }   
+
+    try {
+        const updatedQuestion = await Question.findById(req.params.id)
+        updatedQuestion.title = title
+        updatedQuestion.question = question
+        updatedQuestion.answer = answer
+        updatedQuestion.difficulty = difficulty
+        updatedQuestion.category = category
+        updatedQuestion.tags = tags
+        updatedQuestion.examples = examples
+
+        await updatedQuestion.save()
+
+        res.status(200).json(updatedQuestion)
+    } catch (err) {
+        res.status(400).json({ message: "Invalid question data" })
+    }
+}
+
 
 
 module.exports = {
     getAllQuestions,
     addQuestion,
+    updateQuestion,
 }
