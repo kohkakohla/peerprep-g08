@@ -8,6 +8,9 @@ const getAllQuestions = async (req, res) => {
     res.status(200).json(questions)
 }
 
+// @desc    Add a new question
+// @route   POST /api/questions
+// @access  Public
 const addQuestion = async (req, res) => {
     const { title, question, answer, difficulty, category, tags, examples } = req.body
 
