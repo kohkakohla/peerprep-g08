@@ -8,6 +8,7 @@ import {
   updateUser,
   updateUserPrivilege,
   generateAdminCode,
+  upgradeUserToAdmin,
 } from "../controller/user-controller.js";
 
 import { verifyAccessToken, verifyIsAdmin, verifyIsOwnerOrAdmin } from "../middleware/basic-access-control.js";
@@ -19,6 +20,8 @@ router.get("/", verifyAccessToken, verifyIsAdmin, getAllUsers);
 router.patch("/:id/privilege", verifyAccessToken, verifyIsAdmin, updateUserPrivilege);
 
 router.post("/admin-code", verifyAccessToken, verifyIsAdmin, generateAdminCode);
+
+router.patch("/upgrade", verifyAccessToken, upgradeUserToAdmin);
 
 router.post("/", createUser);
 

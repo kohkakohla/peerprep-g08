@@ -203,3 +203,29 @@ export async function generateAdminCode(req, res) {
   }
 }
 
+export async function upgradeUserToAdmin(req, res) {
+  try {
+    const { code } = req.body;
+    const userId = req.user.id;
+
+    if (!code) {
+      return res.status(400).json({ message: "Admin code is required" });
+    }
+
+    const adminCode = await _findAndUseAdminCode(code);
+    if (!adminCode) {
+      return res.status(400).json({ message: "Invalid or expired admin code" });
+    }
+
+    const updatedUser = await _updateUserPrivilegeById(userId, true);
+    return res.status(200).json({
+      message: `User ${updatedUser.username} upgraded to admin successfully`,
+      data: formatUserResponse(updatedUser),
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Unknown error when upgrading user!" });
+  }
+}
+
+
