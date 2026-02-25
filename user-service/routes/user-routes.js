@@ -20,7 +20,6 @@ router.patch("/:id/privilege", verifyAccessToken, verifyIsAdmin, updateUserPrivi
 
 router.post("/admin-code", verifyAccessToken, verifyIsAdmin, generateAdminCode);
 
-
 router.post("/", createUser);
 
 router.get("/:id", verifyAccessToken, verifyIsOwnerOrAdmin, getUser);
