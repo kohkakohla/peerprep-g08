@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
+import type { ReactNode } from "react";
 import Login from "./features/user/pages/Login.tsx";
 import Register from "./features/user/pages/Register.tsx";
 import Profile from "./features/user/pages/Profile.tsx";
@@ -20,7 +21,7 @@ function Home() {
     )
 }
 
-function ProtectedRoute({ children }: { children: Element }) {
+function ProtectedRoute({ children }: { children: ReactNode }) {
     const token = localStorage.getItem("token");
 
     if (!token) {
@@ -47,7 +48,7 @@ export default function App() {
                     }
                 />
 
-                <Route 
+                <Route
                     path="/profile"
                     element={<Profile />}
                 />
