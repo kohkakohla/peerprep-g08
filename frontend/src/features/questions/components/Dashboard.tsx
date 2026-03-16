@@ -1,5 +1,5 @@
-
-import React, { type ReactNode } from 'react';
+import { type ReactNode } from 'react';
+import AppNavbar from '../../../shared/components/Navbar';
 import '../pages/QuestionPage.css'; 
 
 interface DashboardProps {
@@ -8,17 +8,9 @@ interface DashboardProps {
 
 export default function Dashboard({ children }: DashboardProps) {
   return (
-    <div className="dashboard-layout">
-      <nav className="sidebar">
-        <h2 className="brand">PeerPrep</h2>
-        <ul className="nav-links">
-          <li>Dashboard</li>
-          <li>History</li>
-          <li className="active">Questions</li>
-          <li>Profile</li>
-        </ul>
-      </nav>
-      <main className="main-content">
+    <div className="flex flex-col h-screen bg-gray-50 w-full overflow-hidden">
+      <AppNavbar />
+      <main className="flex-1 p-8 overflow-y-auto w-full mx-auto">
         {children}
       </main>
     </div>
