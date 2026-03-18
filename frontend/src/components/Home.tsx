@@ -2,23 +2,29 @@ import { useNavigate } from "react-router-dom";
 import { Button, Spinner } from "@heroui/react";
 import PageLayout from "../shared/components/PageLayout";
 import { useUserProfile } from "../features/user/hooks/useUserProfile";
-import { useQueryClient } from "@tanstack/react-query";
+import { useLogout } from "../features/user/hooks/useLogout";
+import { useEffect } from "react";
 
 export default function Home() {
-  const { data: user, isLoading } = useUserProfile();
-
+  const { data: user, isLoading, isError } = useUserProfile();
+  const logout = useLogout();
   const navigate = useNavigate();
 
-  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!isLoading && (isError || !user)) {
+      logout();
+    }
+  }, [isLoading, isError, user, logout]);
 
-  if (isLoading) return <Spinner />;
-
-  if (!user)
+  if (isLoading) {
     return (
-      <PageLayout>
-        <div>Something went wrong with login, redirecting...</div>
-      </PageLayout>
+      <div className="flex h-screen items-center justify-center">
+        <Spinner size="lg" />
+      </div>
     );
+  }
+
+  if (!user && !isLoading) return null;
 
   return (
     <PageLayout>
