@@ -24,9 +24,8 @@ export const PeerprepLogo = () => {
 
 export default function AppNavbar() {
   const location = useLocation();
-  const navigate = useNavigate();
 
-  const queryClient = useQueryClient();
+  const logout = useLogout();
 
   const navItems = [
     { name: "Dashboard", path: "/" },
@@ -89,7 +88,7 @@ export default function AppNavbar() {
             color="danger"
             onClick={(e) => {
               e.preventDefault();
-              useLogout();
+              logout();
             }}
           >
             Log Out

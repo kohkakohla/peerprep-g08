@@ -13,6 +13,7 @@ export default function Profile() {
   const { mutate, isPending: isUpgradePending } = useUpgradeToAdmin();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const navigate = useNavigate();
+  const logout = useLogout();
 
   const handleUpgradeSubmit = (code: string) => {
     mutate(code, {
@@ -74,7 +75,7 @@ export default function Profile() {
                 color="danger"
                 variant="flat"
                 onPress={(e) => {
-                  useLogout();
+                  logout();
                 }}
               >
                 Log Out
