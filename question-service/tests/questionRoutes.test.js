@@ -46,7 +46,6 @@ describe('Question API Endpoints', () => {
         });
 
         it('should return all questions in the database', async () => {
-            // Seed the database
             await Question.create({
                 title: 'Two Sum',
                 question: '2 + 2',
@@ -79,7 +78,6 @@ describe('Question API Endpoints', () => {
             expect(response.status).toBe(201);
             expect(response.body.title).toBe(newQuestion.title);
             
-            // Verify it was actually saved to the database
             const questionInDb = await Question.findOne({ title: 'Two Sum' });
             expect(questionInDb).toBeTruthy();
             expect(questionInDb.question).toBe('What is 2+2?');
@@ -126,7 +124,6 @@ describe('Question API Endpoints', () => {
             expect(response.body.title).toBe('Three Sum');
             expect(response.body.difficulty).toBe('medium');
 
-            // Verify the update in the database
             const questionInDb = await Question.findById(question._id);
             expect(questionInDb.title).toBe('Three Sum');
         });
@@ -169,7 +166,6 @@ describe('Question API Endpoints', () => {
             expect(response.status).toBe(200);
             expect(response.body.message).toBe('Question deleted successfully');
 
-            // Verify it was removed from the database
             const questionInDb = await Question.findById(question._id);
             expect(questionInDb).toBeNull();
         });
