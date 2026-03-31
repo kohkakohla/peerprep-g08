@@ -46,9 +46,12 @@ io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('find-match', async (data) => {
-    // Prevent duplicate queue entries (Double Click buttons)
+    // Replace old socket with exisiting ones.
     if (socketToQueueMap.has(socket.id)) {
-        return socket.emit('error', { message: 'You are already searching for a match.' });
+        clearTimeout(timeouts.get(socket.id));
+        const oldQueue = socketToQueueMap.get(socket.id);
+        await redisClient.lRem(oldQueue, 0, socket.id);
+        console.log(`User ${socket.id} rejoining queue: ${oldQueue}`);
     }
     const { userId, difficulty, category, language } = data;
     const queueKey = `queue:${language}:${category}:${difficulty}`;
