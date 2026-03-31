@@ -315,7 +315,7 @@ describe("updateUserPrivilege", () => {
     _findUserById.mockResolvedValue(user);
     _updateUserPrivilegeById.mockResolvedValue({ ...user, isAdmin: true });
 
-    const req = { body: { isAdmin: true }, params: { id: VALID_ID } };
+    const req = { body: { isAdmin: true }, params: { id: VALID_ID }, user: { id: OTHER_ID } };
     const res = mockRes();
 
     await updateUserPrivilege(req, res);
