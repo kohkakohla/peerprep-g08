@@ -19,6 +19,7 @@ import QuestionPanel from "../components/QuestionPanel";
 import EditorPanel from "../components/EditorPanel";
 import ChatPanel from "../components/ChatPanel";
 import PanelErrorBoundary from "../components/PanelErrorBoundary";
+import CollabEditor from "../components/CollabEditor";
 
 /**
  * Room page — three-panel split view.
@@ -121,24 +122,8 @@ export default function Room() {
             }
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
-                <EditorPanel
-                  language={language}
-                  onLanguageChange={setLanguage}
-                >
-                  {/*
-                   * ── Monaco injection point ──────────────────────────
-                   * Install @monaco-editor/react then replace this comment:
-                   *
-                   *   import MonacoEditor from "@monaco-editor/react";
-                   *
-                   *   <MonacoEditor
-                   *     height="100%"
-                   *     language={language}
-                   *     theme="vs-dark"
-                   *     options={{ fontSize: 14, minimap: { enabled: false } }}
-                   *   />
-                   * ────────────────────────────────────────────────────
-                   */}
+                <EditorPanel language={language} onLanguageChange={setLanguage}>
+                  <CollabEditor />
                 </EditorPanel>
               </PanelErrorBoundary>
             }
