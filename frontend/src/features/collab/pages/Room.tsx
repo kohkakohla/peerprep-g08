@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { socket } from "../socket";
 import {
   Button,
   Tooltip,
@@ -67,6 +68,17 @@ export default function Room() {
     navigate("/");
   };
 
+  // Autoleave when session ends
+  const handleSessionEnd = () => {
+    navigate("/");
+  };
+  useEffect(() => {
+    socket.on("room_ended", handleSessionEnd);
+    return () => {
+      socket.off("room_ended", handleSessionEnd);
+    };
+  }, []);
+
   if (!roomReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -123,7 +135,7 @@ export default function Room() {
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
                 <EditorPanel language={language} onLanguageChange={setLanguage}>
-                  <CollabEditor />
+                  <CollabEditor roomId={id!} language={language} />
                 </EditorPanel>
               </PanelErrorBoundary>
             }
