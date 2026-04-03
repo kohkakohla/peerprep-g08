@@ -1,9 +1,9 @@
 import {
   createRoom,
-  getRoom,
+  findById,
   deleteRoom,
   addUserToRoom,
-} from "../utils/room-store.js";
+} from "../model/collab-room-model.js";
 
 class RoomModel {
   static create(id, questionId = null) {

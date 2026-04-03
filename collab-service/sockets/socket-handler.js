@@ -1,5 +1,3 @@
-import { rooms } from "../utils/room-store.js";
-
 export default function socketHandler(io) {
   io.on("connection", (socket) => {
     console.log("User connected:", socket.id);
@@ -9,16 +7,10 @@ export default function socketHandler(io) {
     });
 
     socket.on("send_message", ({ roomId, message }) => {
-      const room = rooms.get(roomId);
-      if (!room) return;
-
       const msg = {
         id: Date.now(),
         text: message,
       };
-
-      room.messages.push(msg);
-
       io.to(roomId).emit("receive_message", msg);
     });
 

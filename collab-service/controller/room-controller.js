@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
-import RoomModel from "../model/room-model.js";
+import { finalizeRoom } from "../yjs/yjs-handler.js";
+import CollabRoomModel from "../model/collab-room-model.js";
 
 export function createRoomController(io) {
   /**
@@ -7,12 +8,12 @@ export function createRoomController(io) {
    * Called by the matching service once a match is found.
    * Body: { questionId?: string }
    */
-  const createRoom = (req, res) => {
+  const createRoom = async (req, res) => {
     const id = uuidv4();
     const { questionId = null } = req.body ?? {};
-    const room = RoomModel.create(id, questionId);
+    const room = await CollabRoomModel.create(id, questionId);
 
-    res.json({ roomId: room.id, questionId: room.questionId });
+    res.json({ roomId: room.roomId, questionId: room.questionId });
   };
 
   /**
@@ -20,13 +21,16 @@ export function createRoomController(io) {
    * Body: { roomId: string }
    * Returns the full room metadata so the frontend can read questionId.
    */
-  const joinRoom = (req, res) => {
+  const joinRoom = async (req, res) => {
     const { roomId, user } = req.body;
-    const { error, data: room } = RoomModel.addUserToRoom(roomId, user);
+    const { error, data: room } = await CollabRoomModel.addUserToRoom(
+      roomId,
+      user,
+    );
     if (!error) {
       return res.json({
         success: true,
-        roomId: room.id,
+        roomId: room.roomId,
         questionId: room.questionId,
       });
     } else if (error === "Room is full") {
@@ -40,26 +44,27 @@ export function createRoomController(io) {
    * GET /rooms/:roomId
    * Lightweight read used by the frontend to hydrate room metadata.
    */
-  const getRoom = (req, res) => {
+  const getRoom = async (req, res) => {
     const { roomId } = req.params;
 
-    const room = RoomModel.findById(roomId);
+    const room = await CollabRoomModel.findById(roomId);
     if (!room) {
       return res.status(404).json({ error: "Room not found" });
     }
 
-    res.json({ roomId: room.id, questionId: room.questionId });
+    res.json({ roomId: room.roomId, questionId: room.questionId });
   };
 
   /**
    * DELETE /rooms/:roomId
    */
-  const endRoom = (req, res) => {
+  const endRoom = async (req, res) => {
     const { roomId } = req.params;
 
     io.to(roomId).emit("room_ended");
 
-    RoomModel.remove(roomId);
+    await finalizeRoom(roomId);
+    await CollabRoomModel.endRoom(roomId);
 
     res.json({ success: true });
   };

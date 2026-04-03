@@ -3,14 +3,47 @@ import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync.js";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
+import { createClient } from "redis";
+import { CollabRoom } from "../model/collab-room-model.js";
 
 // temporary in-memory map, to be upgraded to Redis later
 // roomId → { ydoc: Y.Doc, clients: Set<WebSocket> }
 const rooms = new Map();
 
+const redisClient = createClient({
+  url: process.env.REDIS_URL,
+});
+redisClient.on("error", (err) => {
+  console.error("Redis connection error:", err);
+});
+
+try {
+  await redisClient.connect();
+  console.log("Redis connected");
+} catch (err) {
+  console.error("Redis connection failed:", err.message);
+  process.exit(1);
+}
+
 const wss = new WebSocketServer({ noServer: true });
 
-export function setupYjsHandler(server) {
+export async function setupYjsHandler(server) {
+  setInterval(async () => {
+    const keys = await redisClient.keys("yjs:*");
+    await Promise.all(
+      keys.map((key) => saveRoomToMongo(key.replace("yjs:", ""))),
+    );
+  }, 30000);
+
+  const activeRooms = await CollabRoom.find({ endedAt: null });
+  for (const room of activeRooms) {
+    const saved = await redisClient.get(`yjs:${room.roomId}`);
+    const ydoc = new Y.Doc();
+    if (saved) Y.applyUpdate(ydoc, Buffer.from(saved, "base64"));
+    rooms.set(room.roomId, { ydoc, clients: new Set() });
+    console.log(`Restored room ${room.roomId} from MongoDB`);
+  }
+
   server.on("upgrade", (req, socket, head) => {
     if (req.url.startsWith("/yjs/")) {
       wss.handleUpgrade(req, socket, head, (ws) => {
@@ -19,22 +52,35 @@ export function setupYjsHandler(server) {
     }
   });
 
-  wss.on("connection", (ws, req) => {
+  wss.on("connection", async (ws, req) => {
     const roomId = req.url.replace("/yjs/", "");
 
     if (!rooms.has(roomId)) {
-      rooms.set(roomId, { ydoc: new Y.Doc(), clients: new Set() });
+      // get from Redis if available
+      const ydoc = new Y.Doc();
+      const saved = await redisClient.get(`yjs:${roomId}`);
+      if (saved) {
+        Y.applyUpdate(ydoc, Buffer.from(saved, "base64"));
+      } else if (!saved) {
+        // not in Redis, fall back to MongoDB content
+        const dbRoom = await CollabRoom.findOne({ roomId });
+        if (dbRoom?.content) {
+          ydoc.getText("content").insert(0, dbRoom.content);
+        }
+      }
+      rooms.set(roomId, { ydoc, clients: new Set() });
     }
+
     const room = rooms.get(roomId);
-    // send the new client the current doc state so they're caught up
+
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, 0);
     syncProtocol.writeSyncStep1(encoder, room.ydoc);
-
     ws.send(Buffer.from(encoding.toUint8Array(encoder)));
+
     room.clients.add(ws);
 
-    ws.on("message", (data) => {
+    ws.on("message", async (data) => {
       try {
         const decoder = decoding.createDecoder(new Uint8Array(data));
         const messageType = decoding.readVarUint(decoder);
@@ -48,6 +94,13 @@ export function setupYjsHandler(server) {
           if (response.byteLength > 1) {
             ws.send(Buffer.from(response));
           }
+
+          // save updated ydoc state to Redis
+          const state = Y.encodeStateAsUpdate(room.ydoc);
+          await redisClient.set(
+            `yjs:${roomId}`,
+            Buffer.from(state).toString("base64"),
+          );
         }
         // type 1 = awareness — just broadcast as-is, no decoding needed
 
@@ -74,4 +127,24 @@ export function setupYjsHandler(server) {
   wss.on("error", (err) => {
     console.error("WSS error:", err);
   });
+}
+
+async function saveRoomToMongo(roomId, extra = {}) {
+  const saved = await redisClient.get(`yjs:${roomId}`);
+  if (!saved) return;
+
+  const ydoc = new Y.Doc();
+  Y.applyUpdate(ydoc, Buffer.from(saved, "base64"));
+  const content = ydoc.getText("content").toString();
+
+  await CollabRoom.findOneAndUpdate(
+    { roomId },
+    { content, lastSavedAt: new Date(), ...extra },
+    { upsert: true },
+  );
+}
+
+export async function finalizeRoom(roomId) {
+  await saveRoomToMongo(roomId, { endedAt: new Date() });
+  await redisClient.del(`yjs:${roomId}`);
 }
