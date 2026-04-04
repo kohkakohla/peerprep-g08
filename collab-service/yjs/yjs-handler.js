@@ -27,7 +27,10 @@ try {
 
 const wss = new WebSocketServer({ noServer: true });
 
-export async function setupYjsHandler(server) {
+const ROOM_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+export async function setupYjsHandler(server, io) {
+  // Every 30s: flush all active room states from Redis → MongoDB
   setInterval(async () => {
     const keys = await redisClient.keys("yjs:*");
     await Promise.all(
@@ -35,12 +38,31 @@ export async function setupYjsHandler(server) {
     );
   }, 30000);
 
+  // Every 60s: check for rooms that have been inactive for 30+ minutes
+  setInterval(async () => {
+    const now = Date.now();
+    for (const [roomId, room] of rooms.entries()) {
+      const inactive = now - room.lastActivity;
+      if (inactive >= ROOM_TIMEOUT_MS) {
+        console.log(`Room ${roomId} timed out after ${Math.round(inactive / 60000)}m of inactivity. Finalizing.`);
+        try {
+          // Notify all connected clients before closing
+          if (io) io.to(roomId).emit("room_ended", { reason: "timeout" });
+          await finalizeRoom(roomId);
+          rooms.delete(roomId);
+        } catch (err) {
+          console.error(`Error finalizing timed-out room ${roomId}:`, err);
+        }
+      }
+    }
+  }, 60000);
+
   const activeRooms = await CollabRoom.find({ endedAt: null });
   for (const room of activeRooms) {
     const saved = await redisClient.get(`yjs:${room.roomId}`);
     const ydoc = new Y.Doc();
     if (saved) Y.applyUpdate(ydoc, Buffer.from(saved, "base64"));
-    rooms.set(room.roomId, { ydoc, clients: new Set() });
+    rooms.set(room.roomId, { ydoc, clients: new Set(), lastActivity: Date.now() });
     console.log(`Restored room ${room.roomId} from MongoDB`);
   }
 
@@ -68,7 +90,7 @@ export async function setupYjsHandler(server) {
           ydoc.getText("content").insert(0, dbRoom.content);
         }
       }
-      rooms.set(roomId, { ydoc, clients: new Set() });
+      rooms.set(roomId, { ydoc, clients: new Set(), lastActivity: Date.now() });
     }
 
     const room = rooms.get(roomId);
@@ -82,6 +104,9 @@ export async function setupYjsHandler(server) {
 
     ws.on("message", async (data) => {
       try {
+        // Bump last activity on every message received
+        room.lastActivity = Date.now();
+
         const decoder = decoding.createDecoder(new Uint8Array(data));
         const messageType = decoding.readVarUint(decoder);
 

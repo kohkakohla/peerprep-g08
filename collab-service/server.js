@@ -33,7 +33,7 @@ try {
   process.exit(1);
 }
 
-setupYjsHandler(server);
+setupYjsHandler(server, io);
 
 app.use("/rooms", createRoomRoutes(io));
 
