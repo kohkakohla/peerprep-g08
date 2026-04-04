@@ -7,29 +7,40 @@ async function fetchQuestion(category, difficulty) {
   ? `${QUESTION_SERVICE_URL}/api/questions/category/${encodeURIComponent(category)}`
   : `${QUESTION_SERVICE_URL}/api/questions`;
 
-  const res = await fetch(url);
-  if (!res.ok) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
 
-  const questions = await res.json();
+    const questions = await res.json();
 
-  // filter based on difficulty if provided
-  const filtered = difficulty 
-  ? questions.filter(q => q.difficulty.toLowerCase() === difficulty.toLowerCase())
-  : questions;
+    // filter based on difficulty if provided
+    const filtered = difficulty
+    ? questions.filter(q => q.difficulty.toLowerCase() === difficulty.toLowerCase())
+    : questions;
 
-  if (filtered.length === 0) return null;
-  // return random question from filtered list
-  return filtered[Math.floor(Math.random() * filtered.length)]; 
+    if (filtered.length === 0) return null;
+    // return random question from filtered list
+    return filtered[Math.floor(Math.random() * filtered.length)];
+  } catch (err) {
+    console.error('fetchQuestion failed:', err.message);
+    return null;
+  }
 }
 
 async function createCollaborationRoom(question, userId1, userId2) {
-  const res = await fetch(`${COLLAB_SERVICE_URL}/rooms/create`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ questionId: question?._id }),
-  });
-  if (!res.ok) return null;
-  return res.json();
+  try {
+    const res = await fetch(`${COLLAB_SERVICE_URL}/rooms/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questionId: question?._id }),
+    });
+    
+    if (!res.ok) return null;
+    return res.json();
+  } catch (err) {
+    console.error('createCollaborationRoom failed:', err.message);
+    return null;
+  }
 }
 
 module.exports = { fetchQuestion, createCollaborationRoom };
