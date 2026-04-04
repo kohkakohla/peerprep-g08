@@ -3,8 +3,11 @@ import http from "http";
 import cors from "cors";
 import { Server } from "socket.io";
 
-import { createRoomRouter } from "./routes/room-routes.js";
 import socketHandler from "./sockets/socket-handler.js";
+import { setupYjsHandler } from "./yjs/yjs-handler.js";
+import createRoomRoutes from "./routes/room-routes.js";
+import mongoose from "mongoose";
+import "dotenv/config";
 
 const port = process.env.PORT || 3219;
 
@@ -15,16 +18,28 @@ app.use(express.json());
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-    },
+  cors: {
+    origin: "*",
+  },
+  path: "/socket.io",
+  allowUpgrades: true,
 });
 
-// Pass io instance to room router for broadcasting
-app.use("/rooms", createRoomRouter(io));
+try {
+  await mongoose.connect(process.env.MONGODB_URL);
+  console.log("MongoDB connected");
+} catch (err) {
+  console.error("MongoDB connection failed:", err);
+  process.exit(1);
+}
+
+setupYjsHandler(server);
+
+app.use("/rooms", createRoomRoutes(io));
+
 
 socketHandler(io);
 
 server.listen(port, () => {
-    console.log("Server running on port " + port);
+  console.log("Server running on port " + port);
 });

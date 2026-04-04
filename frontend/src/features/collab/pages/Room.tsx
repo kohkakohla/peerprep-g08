@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { socket } from "../socket";
 import {
   Button,
   Tooltip,
@@ -20,6 +21,9 @@ import QuestionPanel from "../components/QuestionPanel";
 import EditorPanel from "../components/EditorPanel";
 import ChatPanel from "../components/ChatPanel";
 import PanelErrorBoundary from "../components/PanelErrorBoundary";
+import CollabEditor from "../components/CollabEditor";
+import { useUserProfile } from "../../user/hooks/useUserProfile";
+import { useLogout } from "../../user/hooks/useLogout";
 
 /**
  * Room page — three-panel split view.
@@ -31,9 +35,15 @@ import PanelErrorBoundary from "../components/PanelErrorBoundary";
 export default function Room() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // handles session ending modal
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  // handles modal from displaying other party ending session
+  const [sessionEnded, setSessionEnded] = useState(false);
 
-  const [language, setLanguage] = useState("javascript");
+  const { data: user, isLoading, isError } = useUserProfile();
+  const logout = useLogout();
+
+  const [language, setLanguage] = useState("python");
   const [roomReady, setRoomReady] = useState(false);
   const [questionId, setQuestionId] = useState<string | null>(null);
   
@@ -74,20 +84,30 @@ export default function Room() {
     fetchCurrentUser();
   }, []);
 
+  useEffect(() => {
+    if (!isLoading && (isError || !user)) {
+      logout();
+    }
+  }, [isLoading, isError, user, logout]);
+
   // ── Join room & hydrate metadata ────────────────────────────────────────────
   useEffect(() => {
-    if (!id) return;
+    if (!id || isLoading) return;
 
-    joinRoom(id)
+    joinRoom(id, user)
       .then(({ data }) => {
         setQuestionId(data.questionId ?? null);
         setRoomReady(true);
       })
-      .catch(() => {
-        alert("Room does not exist!");
+      .catch((error) => {
+        if (error.response?.status === 403) {
+          alert("Room is full!");
+        } else {
+          alert("Room does not exist!");
+        }
         navigate("/");
       });
-  }, [id, navigate]);
+  }, [id, isLoading, navigate]);
 
   // ── End room ────────────────────────────────────────────────────────────────
   const handleConfirmEnd = async (onClose: () => void) => {
@@ -99,6 +119,17 @@ export default function Room() {
     onClose();
     navigate("/");
   };
+
+  // Autoleave when session ends
+  const handleSessionEnd = () => {
+    setSessionEnded(true);
+  };
+  useEffect(() => {
+    socket.on("room_ended", handleSessionEnd);
+    return () => {
+      socket.off("room_ended", handleSessionEnd);
+    };
+  }, []);
 
   if (!roomReady) {
     return (
@@ -155,24 +186,12 @@ export default function Room() {
             }
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
-                <EditorPanel
-                  language={language}
-                  onLanguageChange={setLanguage}
-                >
-                  {/*
-                   * ── Monaco injection point ──────────────────────────
-                   * Install @monaco-editor/react then replace this comment:
-                   *
-                   *   import MonacoEditor from "@monaco-editor/react";
-                   *
-                   *   <MonacoEditor
-                   *     height="100%"
-                   *     language={language}
-                   *     theme="vs-dark"
-                   *     options={{ fontSize: 14, minimap: { enabled: false } }}
-                   *   />
-                   * ────────────────────────────────────────────────────
-                   */}
+                <EditorPanel language={language} onLanguageChange={setLanguage}>
+                  <CollabEditor
+                    roomId={id!}
+                    language={language}
+                    username={user.username}
+                  />
                 </EditorPanel>
               </PanelErrorBoundary>
             }
@@ -205,6 +224,28 @@ export default function Room() {
                     id="confirm-end-room-btn"
                   >
                     Confirm End
+                  </Button>
+                </ModalFooter>
+              </>
+            )}
+          </ModalContent>
+        </Modal>
+
+        <Modal isOpen={sessionEnded} onOpenChange={() => {}} placement="center">
+          <ModalContent>
+            {() => (
+              <>
+                <ModalHeader>Room has been ended by other user</ModalHeader>
+                <ModalBody>
+                  <p className="text-sm text-default-600">Redirect to home.</p>
+                </ModalBody>
+                <ModalFooter>
+                  <Button
+                    color="danger"
+                    onPress={() => navigate("/")}
+                    id="go-home-btn"
+                  >
+                    Back to Home
                   </Button>
                 </ModalFooter>
               </>
