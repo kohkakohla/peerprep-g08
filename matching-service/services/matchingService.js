@@ -146,7 +146,7 @@ async function finalizeMatch(io, socket, candidate, queueKey) {
 
   console.log(`Match finalised: ${state?.userId} and ${candidate.userId} on ${queueKey}`);
 
-  // Delete user and socker states after match. 
+  // Delete user and socket states after match. 
   await redisClient.del(`user_state:${state?.userId}`);
   await redisClient.del(`user_state:${candidate.userId}`);
 
