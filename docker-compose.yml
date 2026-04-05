@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: peerprep-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - peerprep-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    container_name: peerprep-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - peerprep-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  user-service:
+    build: ./user-service
+    container_name: peerprep-user-service
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - DB_LOCAL_URI=mongodb://mongodb:27017/peerprep-user
+      - ENV=LOCAL
+      - JWT_SECRET=your_jwt_secret_here
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - peerprep-network
+
+  question-service:
+    build: ./question-service
+    container_name: peerprep-question-service
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DB_CLOUD_URI=mongodb://mongodb:27017/peerprep-question
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - peerprep-network
+
+  collab-service:
+    build: ./collab-service
+    container_name: peerprep-collab-service
+    ports:
+      - "3219:3219"
+    environment:
+      - PORT=3219
+      - MONGODB_URL=mongodb://mongodb:27017/peerprep-collab
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - peerprep-network
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: peerprep-api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - USER_SERVICE_URL=http://user-service:3001
+      - QUESTION_SERVICE_URL=http://question-service:8080
+    depends_on:
+      user-service:
+        condition: service_started
+      question-service:
+        condition: service_started
+    networks:
+      - peerprep-network
+
+networks:
+  peerprep-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
