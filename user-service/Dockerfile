@@ -16,9 +16,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy only the necessary files from the builder
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/server.js ./
+COPY --from=builder /app ./
 
 # Expose the service port
 EXPOSE 3001
