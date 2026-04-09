@@ -16,11 +16,25 @@ import {
   findAndUseAdminCode as _findAndUseAdminCode,
 } from "../model/repository.js";
 
+import { isValidEmail, validatePassword } from "../utils/validators.js";
+
 
 export async function createUser(req, res) {
   try {
     const { username, email, password, code } = req.body;
     if (username && email && password) {
+      // F1.1.1 – Validate email format
+      if (!isValidEmail(email)) {
+        return res.status(400).json({ message: "Invalid email format." });
+      }
+
+      // F1.2 – Validate password strength
+      const pwValidation = validatePassword(password);
+      if (!pwValidation.valid) {
+        return res.status(400).json({ message: pwValidation.message });
+      }
+
+      // F1.1.1 – Uniqueness check
       const existingUser = await _findUserByUsernameOrEmail(username, email);
       if (existingUser) {
         return res.status(409).json({ message: "username or email already exists" });
@@ -99,6 +113,20 @@ export async function updateUser(req, res) {
       if (!user) {
         return res.status(404).json({ message: `User ${userId} not found` });
       }
+
+      // F1.1.1 – Validate updated email format
+      if (email && !isValidEmail(email)) {
+        return res.status(400).json({ message: "Invalid email format." });
+      }
+
+      // F1.2 – Validate updated password strength
+      if (password) {
+        const pwValidation = validatePassword(password);
+        if (!pwValidation.valid) {
+          return res.status(400).json({ message: pwValidation.message });
+        }
+      }
+
       if (username || email) {
         let existingUser = await _findUserByUsername(username);
         if (existingUser && existingUser.id !== userId) {
