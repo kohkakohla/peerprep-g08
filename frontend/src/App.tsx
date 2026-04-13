@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import MatchingPage from "./features/matching/pages/MatchingPage.tsx"
 import QuestionPage from "./features/questions/pages/QuestionPage.tsx";
 import type { ReactNode } from "react";
 
@@ -51,7 +52,9 @@ export default function App() {
         <Route path="/questions" element={<QuestionPage />} />
 
         <Route path="/profile" element={<Profile />} />
-
+        
+        <Route path="/matching" element={<MatchingPage />} />
+        
         <Route
           path="/admin/manage-users"
           element={
