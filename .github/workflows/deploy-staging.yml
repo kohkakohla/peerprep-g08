@@ -2,7 +2,7 @@ name: Deploy - Staging (Develop)
 
 on:
   push:
-    branches: [dev]
+    branches: [develop]
     paths:
       - "api-gateway/**"
       - "user-service/**"

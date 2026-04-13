@@ -34,11 +34,11 @@ jobs:
         run: |
           for service in api-gateway user-service question-service collab-service matching-service; do
             if [ -f "$service/package.json" ]; then
-              echo "🔍 Linting $service..."
+              echo "Linting $service..."
               cd "$service"
               npm ci --omit=dev 2>/dev/null || npm ci
               if npm run | grep -q "lint"; then
-                npm run lint || echo "⚠️  Linting issues in $service (non-blocking)"
+                npm run lint || echo "Linting issues in $service (non-blocking)"
               fi
               cd ..
             fi
@@ -49,7 +49,7 @@ jobs:
         run: |
           npm ci
           if npm run | grep -q "lint"; then
-            npm run lint || echo "⚠️  Linting issues in frontend (non-blocking)"
+            npm run lint || echo "Linting issues in frontend (non-blocking)"
           fi
 
   unit-tests:
