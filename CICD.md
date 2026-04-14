@@ -1,5 +1,11 @@
 # CI/CD Pipeline Documentation
 
+## Quick Start
+
+**First time setting up?** Follow the [CI/CD Setup Checklist](./CI_CD_SETUP_CHECKLIST.md) to configure GitHub Secrets, branch protection rules, and verify the pipeline works.
+
+---
+
 ## Overview
 
 This document describes the GitHub Actions CI/CD pipeline for the PeerPrep microservices project. The pipeline automates testing, linting, building, and deployment of Docker images to GitHub Container Registry (GHCR).
@@ -63,6 +69,37 @@ This document describes the GitHub Actions CI/CD pipeline for the PeerPrep micro
 - Collects logs if any service fails
 - Cleans up resources after completion
 - **Status:** Must pass (blocking)
+
+#### Security: .env File Cleanup
+
+⚠️ **Important:** The integration tests job securely handles `.env` files:
+
+1. **Generation**: Creates temporary `.env` files with test-only values (no real secrets)
+
+   ```bash
+   cat > user-service/.env << 'EOF'
+   DB_LOCAL_URI=mongodb://mongodb:27017/...
+   JWT_SECRET=test-secret-key-for-ci  # Test value only
+   EOF
+   ```
+
+2. **Cleanup**: After tests complete (success or failure), all `.env` files are securely removed:
+
+   ```bash
+   rm -f user-service/.env
+   rm -f question-service/.env
+   rm -f collab-service/.env
+   # ... etc
+   ```
+
+3. **Verification**: Confirms all `.env` files are deleted before workflow ends
+
+**Why this matters:**
+
+- Prevents accidental secret exposure in GitHub Actions logs
+- Ensures test credentials don't persist on runners
+- GitHub-hosted runners are destroyed after each workflow, but explicit cleanup is a security best practice
+- CI/CD never stores or exposes real production credentials
 
 **PR Status Requirements:**
 
@@ -151,6 +188,97 @@ docker pull ghcr.io/<owner>/peerprep-g08-user-service:develop
 
 ## Local Development & Testing
 
+### Overview: .env Files & .gitignore
+
+All `.env` files are in `.gitignore` for security (prevent committing secrets). However, services need them to run.
+
+**Solution:**
+
+- `.env.example` files show required variables (committed to git)
+- CI/CD workflows generate `.env` files automatically before running tests
+- Local development: Use provided setup scripts to generate `.env` files
+
+---
+
+### Generating .env Files Locally
+
+Before running Docker Compose or services, generate `.env` files from templates:
+
+**Windows Users:**
+
+```batch
+scripts\setup-env.bat
+```
+
+**macOS/Linux Users:**
+
+```bash
+bash scripts/setup-env.sh
+```
+
+**Manual Setup (if scripts don't work):**
+
+Create the following `.env` files in each service directory:
+
+**user-service/.env:**
+
+```env
+DB_LOCAL_URI=mongodb://127.0.0.1:27017/peerprepUserServiceDB
+PORT=3001
+ENV=PROD
+JWT_SECRET=local-test-secret-key-change-in-production
+```
+
+**question-service/.env:**
+
+```env
+DB_LOCAL_URI=mongodb://127.0.0.1:27017/peerprepQuestionServiceDB
+PORT=8080
+ENV=PROD
+```
+
+**collab-service/.env:**
+
+```env
+PORT=3219
+REDIS_URL=redis://127.0.0.1:6379
+MONGODB_URL=mongodb://127.0.0.1:27017/peerprep-collab
+```
+
+**api-gateway/.env:**
+
+```env
+PORT=3000
+USER_SERVICE_URL=http://localhost:3001
+QUESTION_SERVICE_URL=http://localhost:8080
+MATCHING_SERVICE_URL=http://localhost:3002
+COLLAB_SERVICE_URL=http://localhost:3219
+```
+
+**matching-service/.env:**
+
+```env
+PORT=3002
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+QUESTION_SERVICE_URL=http://localhost:8080
+COLLAB_SERVICE_URL=http://localhost:3219
+```
+
+**frontend/.env:**
+
+```env
+VITE_USER_API_URL=http://localhost:3000/api/user-service
+VITE_QUESTION_API_URL=http://localhost:3000/api/question-service
+VITE_API_GATEWAY_URL=http://localhost:3000
+VITE_MATCHING_API_GATEWAY_URL=http://localhost:3000
+VITE_COLLAB_API_URL=http://localhost:3219
+```
+
+⚠️ **Note:** These local values use `127.0.0.1` (localhost). Docker Compose uses service hostnames (`mongodb`, `redis`) from the Docker network.
+
+---
+
 ### Running Tests Locally
 
 **User Service Tests:**
@@ -172,16 +300,25 @@ npm test
 **All Services with Docker Compose:**
 
 ```bash
-# Start services with health checks
+# 1. Generate .env files (if not already done)
+scripts/setup-env.sh  # or setup-env.bat on Windows
+
+# 2. Start services with health checks
 docker compose up -d
 
-# Wait for services to be healthy
+# 3. Wait for services to be healthy (should show "healthy" status)
 docker compose ps
-# All services should show "healthy" status
 
-# Stop services
-docker compose down
+# 4. Stop services and clean up
+docker compose down -v
+
+# 5. (Optional but recommended) Remove temporary .env files after testing
+rm user-service/.env question-service/.env collab-service/.env \
+   api-gateway/.env matching-service/.env frontend/.env
+# Windows: del user-service\.env question-service\.env collab-service\.env etc.
 ```
+
+**Security Tip:** While `.env` files are in `.gitignore` and won't be committed, it's good practice to remove them after testing to avoid accidental exposure if you share your screen or commit by accident.
 
 ### Running Linter Locally
 
@@ -217,7 +354,9 @@ npx eslint src/ --ext .js,.jsx,.ts,.tsx
 
 ## Setting Up GitHub Secrets
 
-The pipeline uses `secrets.GITHUB_TOKEN` (automatically available) for authentication to GHCR. No manual secrets configuration needed!
+### Automatic Authentication (GHCR)
+
+The pipeline uses `secrets.GITHUB_TOKEN` (automatically available) for authentication to GHCR. No manual configuration needed!
 
 **Automatic Authentication:**
 
@@ -225,9 +364,92 @@ The pipeline uses `secrets.GITHUB_TOKEN` (automatically available) for authentic
 - Token scope: Read/write to packages in this repository
 - No Personal Access Token needed for GHCR
 
+### Sensitive Values for CI/CD Testing
+
+For security, sensitive test values are stored in GitHub Secrets (not hardcoded in workflow files):
+
+**Required Secret:**
+
+- `JWT_SECRET_CI` — JWT signing key for integration tests (can be any random string for testing)
+
+**How to Set Up:**
+
+1. Go to your GitHub repository
+2. Settings → Secrets and variables → Actions
+3. Click "New repository secret"
+4. Name: `JWT_SECRET_CI`
+5. Value: Enter any random string (example: `test-jwt-secret-key-12345`)
+6. Click "Add secret"
+
+**Why This Matters:**
+
+- ✅ Sensitive values are NOT visible in the workflow YAML file
+- ✅ Secrets are masked in GitHub Actions logs
+- ✅ Only referenced as `${{ secrets.JWT_SECRET_CI }}` in workflows
+- ✅ Anyone viewing the repo code cannot see the actual secret values
+- ❌ Hardcoding secrets in YAML = visible to everyone who can read the repo
+
+**Current Workflow Usage:**
+
+The `ci.yml` workflow references `JWT_SECRET_CI` when generating `.env` files for integration tests:
+
+```yaml
+JWT_SECRET=${{ secrets.JWT_SECRET_CI }}
+```
+
+**Non-Sensitive Values (OK to Hardcode):**
+
+These can remain visible in the workflow file (they're not secrets):
+
+- Database URIs for local testing (`mongodb://mongodb:27017/...`)
+- Service ports (`3001`, `8080`, `3219`, etc.)
+- Service URLs (`http://user-service:3001`)
+- Environment names (`PROD`, `DEV`)
+
+**Future Secrets (if needed):**
+
+As the project grows, add more secrets for:
+
+- Real database credentials (if connecting to cloud MongoDB)
+- API keys
+- Third-party service credentials
+- OAuth tokens
+
 ---
 
 ## Troubleshooting
+
+### .env files not detected (Docker Compose fails to start)
+
+**Symptom:**
+
+```
+ERROR: error reading 'user-service/.env': open user-service/.env: no such file or directory
+```
+
+**Cause:** `.env` files are in `.gitignore`, so they're not checked into git or pulled in CI/local clones.
+
+**Solution:**
+
+1. **Generate .env files:**
+
+   ```bash
+   # Windows
+   scripts\setup-env.bat
+
+   # macOS/Linux
+   bash scripts/setup-env.sh
+   ```
+
+2. **Or manually create them** (see sections above)
+
+3. **Verify they exist:**
+   ```bash
+   ls user-service/.env question-service/.env  # macOS/Linux
+   dir user-service\.env  # Windows
+   ```
+
+**CI/CD Note:** GitHub Actions workflow automatically generates .env files before running integration tests, so this issue shouldn't occur in CI.
 
 ### Image fails to push to GHCR
 
