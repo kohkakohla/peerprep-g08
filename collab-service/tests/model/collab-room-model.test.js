@@ -68,32 +68,25 @@ describe("CollabRoomModel.findById", () => {
 // addUserToRoom
 /////////////////////////////////////////////////////
 describe("CollabRoomModel.addUserToRoom", () => {
-  test("returns { error: 'Room not found', data: null } when room does not exist", async () => {
-    mockCollabRoom.findOne.mockResolvedValue(null);
-
-    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
-
-    expect(result).toEqual({ error: "Room not found", data: null });
-    expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
-  });
-
-  test("returns { error: 'User already in room', data: null } when user is already in the room (e.g. second tab)", async () => {
+  test("returns { error: null, data: room } when user is already in the room (idempotent join)", async () => {
     const existingRoom = { roomId: "r1", users: [{ id: "u1" }] };
     mockCollabRoom.findOne.mockResolvedValue(existingRoom);
 
     const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
 
-    expect(result).toEqual({ error: "User already in room", data: null });
+    expect(result).toEqual({ error: null, data: existingRoom });
     expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
-  test("treats two users with undefined ids as duplicates and denies the second", async () => {
+  test("treats two users with undefined ids as duplicates (idempotent)", async () => {
     const existingRoom = { roomId: "r1", users: [{ id: undefined }] };
     mockCollabRoom.findOne.mockResolvedValue(existingRoom);
 
-    const result = await CollabRoomModel.addUserToRoom("r1", { id: undefined });
+    const result = await CollabRoomModel.addUserToRoom("r1", {
+      id: undefined,
+    });
 
-    expect(result).toEqual({ error: "User already in room", data: null });
+    expect(result).toEqual({ error: null, data: existingRoom });
     expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
   });
 

@@ -98,18 +98,21 @@ describe("joinRoom", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
-  test("returns 409 when user is already in the room (e.g. connecting from a second tab)", async () => {
+  test("returns 200 success when user is already in room (idempotent join)", async () => {
     CollabRoomModel.addUserToRoom.mockResolvedValue({
-      error: "User already in room",
-      data: null,
+      error: null,
+      data: { roomId: "r1", questionId: "q1" },
     });
 
     const { joinRoom } = buildControllers();
     const res = mockRes();
     await joinRoom({ body: { roomId: "r1", user: { id: "u1" } } }, res);
 
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({ error: "User already in room" });
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      roomId: "r1",
+      questionId: "q1",
+    });
   });
 
   test("returns 403 when room is full (third user trying to join)", async () => {
