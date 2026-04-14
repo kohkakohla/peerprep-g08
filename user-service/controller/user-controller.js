@@ -16,6 +16,7 @@ import {
   findAndUseAdminCode as _findAndUseAdminCode,
   updateUserProfilePicture as _updateUserProfilePicture,
 } from "../model/repository.js";
+import jwt from "jsonwebtoken";
 
 import { isValidEmail, validatePassword, validateUsername } from "../utils/validators.js";
 import { bufferToDataUri } from "../middleware/profile-picture-upload.js";
@@ -66,9 +67,15 @@ export async function createUser(req, res) {
         createdUser.isAdmin = true;
       }
 
+      const accessToken = jwt.sign({
+          id: createdUser.id,
+      }, process.env.JWT_SECRET, {
+          expiresIn: "1d",
+      });
+
       return res.status(201).json({
         message: `Created new user ${username} successfully`,
-        data: formatUserResponse(createdUser),
+        data: { accessToken, ...formatUserResponse(createdUser)},
       });
     } else {
       return res.status(400).json({ message: "username and/or email and/or password are missing" });
@@ -185,6 +192,12 @@ export async function updateUserPrivilege(req, res) {
       const user = await _findUserById(userId);
       if (!user) {
         return res.status(404).json({ message: `User ${userId} not found` });
+      }
+
+      if (req.user.id === userId && isAdmin === false) {
+          return res.status(403).json({
+              message: "Cannot remove own admin privileges!",
+          });
       }
 
       const updatedUser = await _updateUserPrivilegeById(userId, isAdmin === true);
