@@ -23,7 +23,7 @@
 
    ![alt text](./GuideAssets/ConnectionString.png)
 
-6. In the `user-service` directory, create a copy of the `.env.sample` file and name it `.env`.
+6. In the `user-service` directory, create a copy of the `.env.example` file and name it `.env`.
 
 7. Update the `DB_CLOUD_URI` of the `.env` file, and paste the string we copied earlier in **step 5**. Also remember to replace the `<db_password>` placeholder with the **actual password**.
 

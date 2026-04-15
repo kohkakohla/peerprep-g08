@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev": "nodemon index.js",
     "test": "jest --testPathPatterns=tests --forceExit"
   },
   "keywords": [],
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "jest": "^30.3.0",
+    "nodemon": "^3.1.14",
     "socket.io-client": "^4.8.3"
   }
 }

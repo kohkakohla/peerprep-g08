@@ -110,7 +110,7 @@ export default function Room() {
         }
         navigate("/");
       });
-  }, [id, isLoading, navigate]);
+  }, [id, isLoading, navigate, user]);
 
   // ── End room ────────────────────────────────────────────────────────────────
   const handleConfirmEnd = async (onClose: () => void) => {

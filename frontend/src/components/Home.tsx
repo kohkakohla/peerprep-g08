@@ -57,7 +57,7 @@ export default function Home() {
             className="w-full text-center"
             onPress={() => navigate("/room")}
           >
-            <p className="text-white">Enter Collaboration (Dev)</p>
+            <p className="text-white">Enter Collaboration</p>
           </Button>
         </div>
       </div>
