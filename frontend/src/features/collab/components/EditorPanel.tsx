@@ -12,7 +12,6 @@ interface EditorPanelProps {
   /** Drop Monaco Editor (or any other editor) here as a child. */
   children?: ReactNode;
   language?: string;
-  onLanguageChange?: (lang: string) => void;
 }
 
 /**
@@ -20,8 +19,7 @@ interface EditorPanelProps {
  */
 export default function EditorPanel({
   children,
-  language = "javascript", // Updated default language
-  onLanguageChange,
+  language = "javascript",
 }: EditorPanelProps) {
   return (
     <Card
@@ -31,30 +29,18 @@ export default function EditorPanel({
       {/* ── Toolbar ── */}
       <CardHeader className="flex flex-row items-center justify-between px-4 py-2 flex-none border-b border-divider gap-3">
         <div className="flex items-center gap-2">
-           <span className="text-xs font-semibold uppercase tracking-widest text-default-400 select-none">
+          <span className="text-xs font-semibold uppercase tracking-widest text-default-400 select-none">
             Code Editor
           </span>
           <div className="h-4 w-px bg-divider mx-1" />
           <span className="text-[10px] text-default-400 font-mono hidden sm:inline">
             peer-to-peer logic enabled
           </span>
+          <div className="h-4 w-px bg-divider mx-1" />
+          <span className="text-[10px] text-default-400 font-mono hidden sm:inline">
+            Language: {language}
+          </span>
         </div>
-
-        <Select
-          aria-label="Select programming language"
-          size="sm"
-          variant="flat"
-          selectedKeys={[language]}
-          className="max-w-[160px]"
-          onSelectionChange={(keys) => {
-            const selected = Array.from(keys)[0] as string;
-             if (selected) onLanguageChange?.(selected);
-          }}
-        >
-          {LANGUAGES.map((lang) => (
-            <SelectItem key={lang.key}>{lang.label}</SelectItem>
-          ))}
-        </Select>
       </CardHeader>
 
       {/* ── Editor mount ── */}

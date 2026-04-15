@@ -58,7 +58,7 @@ function injectCursorStyle(clientId: number, color: string, name: string) {
 
 export default function CollabEditor({
   roomId,
-  language = "python",
+  language = "javascript",
   readOnly = false,
   username,
 }: CollabEditorProps) {
@@ -69,12 +69,7 @@ export default function CollabEditor({
     editorRef.current = editor;
     const yText = ydoc.getText("content");
     const model = editor.getModel();
-    new MonacoBinding(
-      yText,
-      model!,
-      new Set([editor]),
-      wsProvider.awareness,
-    );
+    new MonacoBinding(yText, model!, new Set([editor]), wsProvider.awareness);
     wsProvider.awareness.setLocalStateField("user", {
       name: username,
       color: hashUsernameToColor(username),

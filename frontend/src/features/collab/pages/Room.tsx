@@ -197,7 +197,7 @@ export default function Room() {
             }
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
-                <EditorPanel language={language} onLanguageChange={setLanguage}>
+                <EditorPanel language={language}>
                   <CollabEditor
                     roomId={id!}
                     language={language}
