@@ -47,7 +47,7 @@ const getQuestionsByTitle = async (req, res) => {
 // @access  Public
 const getQuestionsByCategory = async (req, res) => {
     try {
-        const questions = await Question.find({ category: req.params.category })
+        const questions = await Question.find({ category: { $regex: new RegExp(`^${req.params.category}$`, 'i') } })
 
         if (!questions || questions.length === 0) {
             res.status(404).json({ message: "No questions found for this category" })
