@@ -4,6 +4,7 @@ import { Input, Button, Card, CardBody, CardHeader, Form } from "@heroui/react";
 import { loginUser, verifyOtp, sendOtp } from "../api/auth";
 import EmailOtpModal from "../components/EmailOtpModal";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
+import { getErrorMessage } from "../../../utils/error-handler";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -32,13 +33,14 @@ export default function Login() {
       const data = await loginUser(email, password);
       localStorage.setItem("token", data.data.accessToken);
       navigate("/");
-    } catch (error: any) {
-      if (error.message.includes("not verified")) {
+    } catch (error) {
+      const errorMsg = getErrorMessage(error);
+      if (errorMsg.includes("not verified")) {
         // Trigger resend OTP and show modal
         await sendOtp(email);
         setIsOtpModalOpen(true);
       } else {
-        setErrorMessage(error.message || "Something went wrong");
+        setErrorMessage(errorMsg || "Something went wrong");
       }
     }
   };
@@ -49,8 +51,6 @@ export default function Login() {
       await verifyOtp(email, otp);
       setIsOtpModalOpen(false);
       setSuccessMessage("Email verified successfully! You can now log in.");
-    } catch (error: any) {
-      throw error;
     } finally {
       setIsVerifying(false);
     }

@@ -13,6 +13,7 @@ import {
   Alert,
 } from "@heroui/react";
 import { useUserProfile } from "../../user/hooks/useUserProfile";
+import { getErrorMessage } from "../../../utils/error-handler";
 
 const SOCKET_URL =
   import.meta.env.VITE_MATCHING_API_GATEWAY_URL ||
@@ -70,9 +71,9 @@ export default function MatchingPage() {
       setError("Connection lost to matching service");
     });
 
-    newSocket.on("error", (err: any) => {
+    newSocket.on("error", (err: unknown) => {
       console.error("Socket error:", err);
-      setError("Connection error to matching service");
+      setError(`Connection error to matching service: ${getErrorMessage(err)}`);
     });
 
     setSocket(newSocket);
