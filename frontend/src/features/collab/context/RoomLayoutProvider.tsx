@@ -1,13 +1,5 @@
-import { createContext, useState, type ReactNode } from "react";
-
-export interface RoomLayoutState {
-  questionCollapsed: boolean;
-  chatCollapsed: boolean;
-  toggleQuestion: () => void;
-  toggleChat: () => void;
-}
-
-export const RoomLayoutContext = createContext<RoomLayoutState | undefined>(undefined);
+import { useState, type ReactNode } from "react";
+import { RoomLayoutContext } from "./RoomLayoutContext";
 
 export function RoomLayoutProvider({ children }: { children: ReactNode }) {
   const [questionCollapsed, setQuestionCollapsed] = useState(false);
