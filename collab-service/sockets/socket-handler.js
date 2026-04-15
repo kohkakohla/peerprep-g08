@@ -6,6 +6,13 @@ export default function socketHandler(io) {
     console.log("User connected:", socket.id);
 
     socket.on("join_room", async (roomId, userData) => {
+      // Check if room has ended
+      const isEnded = await CollabRoomModel.isRoomEnded(roomId);
+      if (isEnded) {
+        socket.emit("room_ended", { message: "This room has ended and cannot be joined" });
+        return;
+      }
+
       socket.join(roomId);
 
       // Load persisted messages from database
