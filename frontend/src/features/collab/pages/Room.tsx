@@ -46,7 +46,7 @@ export default function Room() {
   const [language, setLanguage] = useState("python");
   const [roomReady, setRoomReady] = useState(false);
   const [questionId, setQuestionId] = useState<string | null>(null);
-  
+
   // Get current user data from localStorage
   const getUserFromStorage = () => {
     const userData = localStorage.getItem("userData");
@@ -60,8 +60,10 @@ export default function Room() {
     }
     return { username: "", id: "" };
   };
-  
-  const [currentUser] = useState<{ username: string; id: string }>(getUserFromStorage());
+
+  const [currentUser] = useState<{ username: string; id: string }>(
+    getUserFromStorage(),
+  );
 
   // ── Fetch fresh user data from /auth/me on mount ────────────────────────────
   useEffect(() => {
@@ -69,12 +71,15 @@ export default function Room() {
       try {
         const response = await getCurrentUser();
         // Store fresh user data in localStorage
-        localStorage.setItem("userData", JSON.stringify({
-          id: response.data.id,
-          username: response.data.username,
-          email: response.data.email,
-          isAdmin: response.data.isAdmin,
-        }));
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            id: response.data.id,
+            username: response.data.username,
+            email: response.data.email,
+            isAdmin: response.data.isAdmin,
+          }),
+        );
       } catch (error) {
         console.warn("Failed to fetch current user data:", error);
         // Continue anyway - we have data from login, this is just a refresh
@@ -102,6 +107,8 @@ export default function Room() {
       .catch((error) => {
         if (error.response?.status === 403) {
           alert("Room is full!");
+        } else if (error.response?.status === 410) {
+          alert("Room has already ended.");
         } else {
           alert("Room does not exist!");
         }
@@ -197,7 +204,11 @@ export default function Room() {
             }
             chatPanel={
               <PanelErrorBoundary fallbackLabel="Chat panel error">
-                <ChatPanel roomId={id!} currentUsername={currentUser.username} currentUserId={currentUser.id} />
+                <ChatPanel
+                  roomId={id!}
+                  currentUsername={currentUser.username}
+                  currentUserId={currentUser.id}
+                />
               </PanelErrorBoundary>
             }
           />

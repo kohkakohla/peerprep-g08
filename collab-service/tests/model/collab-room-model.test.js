@@ -41,6 +41,36 @@ describe("CollabRoomModel.create", () => {
       "Duplicate key",
     );
   });
+
+  test("passes allowedUsers to CollabRoom.create", async () => {
+    const fakeRoom = {
+      roomId: "r1",
+      questionId: "q1",
+      allowedUsers: [{ id: "u1", username: "alice" }],
+    };
+    mockCollabRoom.create.mockResolvedValue(fakeRoom);
+
+    await CollabRoomModel.create("r1", "q1", [{ id: "u1", username: "alice" }]);
+
+    expect(mockCollabRoom.create).toHaveBeenCalledWith({
+      roomId: "r1",
+      questionId: "q1",
+      allowedUsers: [{ id: "u1", username: "alice" }],
+    });
+  });
+
+  test("defaults allowedUsers to [] when not provided", async () => {
+    const fakeRoom = { roomId: "r1", questionId: "q1", allowedUsers: [] };
+    mockCollabRoom.create.mockResolvedValue(fakeRoom);
+
+    await CollabRoomModel.create("r1", "q1");
+
+    expect(mockCollabRoom.create).toHaveBeenCalledWith({
+      roomId: "r1",
+      questionId: "q1",
+      allowedUsers: [],
+    });
+  });
 });
 
 /////////////////////////////////////////////////////
@@ -115,6 +145,56 @@ describe("CollabRoomModel.addUserToRoom", () => {
     );
     expect(result).toEqual({ error: null, data: updatedRoom });
   });
+  ///////////////////////////////////////////////////////
+  // edge case test: cannot join a room that has ended
+  ///////////////////////////////////////////////////////
+  test("returns { error: 'Room already ended', data: null } when endedAt is set", async () => {
+    mockCollabRoom.findOne.mockResolvedValue({
+      roomId: "r1",
+      users: [],
+      endedAt: new Date(),
+    });
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
+
+    expect(result).toEqual({ error: "Room already ended", data: null });
+    expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("proceeds normally when endedAt is null (room still active)", async () => {
+    const emptyRoom = { roomId: "r1", users: [], endedAt: null };
+    const updatedRoom = { roomId: "r1", users: [{ id: "u1" }] };
+    mockCollabRoom.findOne.mockResolvedValue(emptyRoom);
+    mockCollabRoom.findOneAndUpdate.mockResolvedValue(updatedRoom);
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
+
+    expect(result.error).toBeNull();
+  });
+
+  test("proceeds normally when endedAt is absent (field not set)", async () => {
+    const emptyRoom = { roomId: "r1", users: [] };
+    const updatedRoom = { roomId: "r1", users: [{ id: "u1" }] };
+    mockCollabRoom.findOne.mockResolvedValue(emptyRoom);
+    mockCollabRoom.findOneAndUpdate.mockResolvedValue(updatedRoom);
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
+
+    expect(result.error).toBeNull();
+  });
+
+  test("endedAt check takes priority over duplicate-user check", async () => {
+    mockCollabRoom.findOne.mockResolvedValue({
+      roomId: "r1",
+      users: [{ id: "u1" }],
+      endedAt: new Date(),
+    });
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
+
+    expect(result).toEqual({ error: "Room already ended", data: null });
+    expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
+  });
 
   test("first user can always join an empty room", async () => {
     const emptyRoom = { roomId: "r1", users: [] };
@@ -125,6 +205,83 @@ describe("CollabRoomModel.addUserToRoom", () => {
     const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
 
     expect(result).toEqual({ error: null, data: updatedRoom });
+  });
+
+  // edge case handling: allowedUsers handling
+  test("returns { error: 'User not allowed', data: null } when user not in allowedUsers", async () => {
+    mockCollabRoom.findOne.mockResolvedValue({
+      roomId: "r1",
+      users: [],
+      allowedUsers: [{ id: "u1", username: "alice" }],
+    });
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u2" });
+
+    expect(result).toEqual({ error: "User not allowed", data: null });
+    expect(mockCollabRoom.findOneAndUpdate).not.toHaveBeenCalled();
+  });
+
+  test("allows join when user is in allowedUsers", async () => {
+    const room = {
+      roomId: "r1",
+      users: [],
+      allowedUsers: [{ id: "u1" }, { id: "u2" }],
+    };
+    const updatedRoom = { roomId: "r1", users: [{ id: "u1" }] };
+    mockCollabRoom.findOne.mockResolvedValue(room);
+    mockCollabRoom.findOneAndUpdate.mockResolvedValue(updatedRoom);
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u1" });
+
+    expect(result.error).toBeNull();
+  });
+
+  test("skips allowedUsers check when allowedUsers is empty (here for backward compatibility)", async () => {
+    const room = { roomId: "r1", users: [], allowedUsers: [] };
+    const updatedRoom = { roomId: "r1", users: [{ id: "anyone" }] };
+    mockCollabRoom.findOne.mockResolvedValue(room);
+    mockCollabRoom.findOneAndUpdate.mockResolvedValue(updatedRoom);
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "anyone" });
+
+    expect(result.error).toBeNull();
+  });
+
+  test("skips allowedUsers check when allowedUsers field is absent", async () => {
+    const room = { roomId: "r1", users: [] };
+    const updatedRoom = { roomId: "r1", users: [{ id: "anyone" }] };
+    mockCollabRoom.findOne.mockResolvedValue(room);
+    mockCollabRoom.findOneAndUpdate.mockResolvedValue(updatedRoom);
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "anyone" });
+
+    expect(result.error).toBeNull();
+  });
+
+  test("allowedUsers check comes after endedAt check (endedAt wins)", async () => {
+    mockCollabRoom.findOne.mockResolvedValue({
+      roomId: "r1",
+      users: [],
+      allowedUsers: [{ id: "u1" }],
+      endedAt: new Date(),
+    });
+
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u2" });
+
+    expect(result).toEqual({ error: "Room already ended", data: null });
+  });
+
+  test("allowedUsers check comes before duplicate-user check", async () => {
+    mockCollabRoom.findOne.mockResolvedValue({
+      roomId: "r1",
+      users: [{ id: "u2" }],
+      allowedUsers: [{ id: "u1" }],
+    });
+
+    // u2 is in users but not in allowedUsers -> should be rejected
+    const result = await CollabRoomModel.addUserToRoom("r1", { id: "u2" });
+
+    expect(result).toEqual({ error: "User not allowed", data: null });
   });
 });
 

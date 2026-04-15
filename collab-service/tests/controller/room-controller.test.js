@@ -62,6 +62,44 @@ describe("createRoom", () => {
     expect(res.status).not.toHaveBeenCalled();
   });
 
+  // J2: allowedUsers forwarding
+  test("passes allowedUsers from request body to CollabRoomModel.create", async () => {
+    uuidv4.mockReturnValue("test-uuid");
+    CollabRoomModel.create.mockResolvedValue({
+      roomId: "test-uuid",
+      questionId: "q1",
+    });
+
+    const { createRoom } = buildControllers();
+    const req = {
+      body: {
+        questionId: "q1",
+        allowedUsers: [{ id: "u1", username: "alice" }],
+      },
+    };
+    const res = mockRes();
+
+    await createRoom(req, res);
+
+    expect(CollabRoomModel.create).toHaveBeenCalledWith("test-uuid", "q1", [
+      { allowedUsers: [], id: "u1", username: "alice" },
+    ]);
+  });
+
+  test("defaults allowedUsers to [] when not provided in body", async () => {
+    uuidv4.mockReturnValue("test-uuid");
+    CollabRoomModel.create.mockResolvedValue({
+      allowedUsers: [],
+      roomId: "test-uuid",
+      questionId: null,
+    });
+
+    const { createRoom } = buildControllers();
+    await createRoom({ body: {} }, mockRes());
+
+    expect(CollabRoomModel.create).toHaveBeenCalledWith("test-uuid", null, []);
+  });
+
   test("propagates errors from CollabRoomModel.create (no try/catch)", async () => {
     uuidv4.mockReturnValue("test-uuid");
     CollabRoomModel.create.mockRejectedValue(new Error("DB failure"));
@@ -144,6 +182,34 @@ describe("joinRoom", () => {
 
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.json).toHaveBeenCalledWith({ error: "Room not found" });
+  });
+
+  test("returns 403 when user is not in allowedUsers", async () => {
+    CollabRoomModel.addUserToRoom.mockResolvedValue({
+      error: "User not allowed",
+      data: null,
+    });
+
+    const { joinRoom } = buildControllers();
+    const res = mockRes();
+    await joinRoom({ body: { roomId: "r1", user: { id: "u2" } } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({ error: "User not allowed" });
+  });
+
+  test("returns 410 when room has already ended", async () => {
+    CollabRoomModel.addUserToRoom.mockResolvedValue({
+      error: "Room already ended",
+      data: null,
+    });
+
+    const { joinRoom } = buildControllers();
+    const res = mockRes();
+    await joinRoom({ body: { roomId: "r1", user: { id: "u1" } } }, res);
+
+    expect(res.status).toHaveBeenCalledWith(410);
+    expect(res.json).toHaveBeenCalledWith({ error: "Room already ended" });
   });
 
   test("returns 404 for any other error (else branch)", async () => {

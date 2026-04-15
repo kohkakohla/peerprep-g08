@@ -4,6 +4,7 @@ const { Schema } = mongoose;
 const CollabRoomModelSchema = new Schema({
   roomId: { type: String, unique: true },
   questionId: { type: String },
+  allowedUsers: [{ id: String, username: String }],
   users: [
     {
       id: String,
@@ -30,8 +31,8 @@ const CollabRoomModelSchema = new Schema({
 export const CollabRoom = mongoose.model("CollabRoom", CollabRoomModelSchema);
 
 export default class CollabRoomModel {
-  static async create(roomId, questionId) {
-    return await CollabRoom.create({ roomId, questionId });
+  static async create(roomId, questionId, allowedUsers = []) {
+    return await CollabRoom.create({ roomId, questionId, allowedUsers });
   }
 
   static async findById(roomId) {
@@ -41,6 +42,12 @@ export default class CollabRoomModel {
   static async addUserToRoom(roomId, user) {
     const room = await CollabRoom.findOne({ roomId });
     if (!room) return { error: "Room not found", data: null };
+    if (room.endedAt) return { error: "Room already ended", data: null };
+    if (room.allowedUsers && room.allowedUsers.length > 0) {
+      if (!room.allowedUsers.find((u) => u.id === user.id)) {
+        return { error: "User not allowed", data: null };
+      }
+    }
     if (room.users.find((u) => u.id === user.id))
       return { error: null, data: room };
     if (room.users.length >= 2) return { error: "Room is full", data: null };
