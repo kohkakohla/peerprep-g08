@@ -49,7 +49,6 @@ export default function Room() {
 
   // Latest editor content snapshot, used as AI context for @AI chat requests.
   const [codeContext, setCodeContext] = useState("");
-  
   // Get current user data from localStorage
   const getUserFromStorage = () => {
     const userData = localStorage.getItem("userData");
@@ -63,8 +62,10 @@ export default function Room() {
     }
     return { username: "", id: "" };
   };
-  
-  const [currentUser] = useState<{ username: string; id: string }>(getUserFromStorage());
+
+  const [currentUser] = useState<{ username: string; id: string }>(
+    getUserFromStorage(),
+  );
 
   // ── Fetch fresh user data from /auth/me on mount ────────────────────────────
   useEffect(() => {
@@ -72,12 +73,15 @@ export default function Room() {
       try {
         const response = await getCurrentUser();
         // Store fresh user data in localStorage
-        localStorage.setItem("userData", JSON.stringify({
-          id: response.data.id,
-          username: response.data.username,
-          email: response.data.email,
-          isAdmin: response.data.isAdmin,
-        }));
+        localStorage.setItem(
+          "userData",
+          JSON.stringify({
+            id: response.data.id,
+            username: response.data.username,
+            email: response.data.email,
+            isAdmin: response.data.isAdmin,
+          }),
+        );
       } catch (error) {
         console.warn("Failed to fetch current user data:", error);
         // Continue anyway - we have data from login, this is just a refresh
@@ -95,7 +99,7 @@ export default function Room() {
 
   // ── Join room & hydrate metadata ────────────────────────────────────────────
   useEffect(() => {
-    if (!id || isLoading) return;
+    if (!id || isLoading || !user) return;
 
     joinRoom(id, user)
       .then(({ data }) => {
@@ -103,8 +107,14 @@ export default function Room() {
         setRoomReady(true);
       })
       .catch((error) => {
-        if (error.response?.status === 403) {
+        const status = error.response?.status;
+        const errorBody = error.response?.data?.error;
+        if (status === 403 && errorBody === "User not allowed") {
+          alert("You are not authorised to join this room.");
+        } else if (status === 403) {
           alert("Room is full!");
+        } else if (status === 410) {
+          alert("Room has already ended.");
         } else {
           alert("Room does not exist!");
         }
@@ -189,7 +199,7 @@ export default function Room() {
             }
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
-                <EditorPanel language={language} onLanguageChange={setLanguage}>
+                <EditorPanel language={language}>
                   <CollabEditor
                     roomId={id!}
                     language={language}

@@ -119,6 +119,7 @@ export default function MatchingPage() {
     }
     socket.emit("find-match", {
       userId: user?.id,
+      username: user?.username,
       languages: selectedLanguages,
       difficulty,
       topics: selectedTopics,

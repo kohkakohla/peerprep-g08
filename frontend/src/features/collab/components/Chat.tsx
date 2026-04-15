@@ -8,6 +8,7 @@ interface Message {
   text: string;
   senderUsername?: string;
   senderId?: string;
+  isSystem?: boolean;
 }
 
 interface ChatProps {
@@ -29,8 +30,6 @@ export default function Chat({
   const navigate = useNavigate();
 
   useEffect(() => {
-    socket.emit("join_room", roomId, { username: currentUsername });
-
     // Listen for persisted messages from room
     socket.on("load_messages", (initialMessages: Message[]) => {
       setMessages(initialMessages);
@@ -47,12 +46,40 @@ export default function Chat({
       navigate("/");
     });
 
+    // handle duplicate-tab rejection from server
+    socket.on("join_error", ({ message: errMsg }: { message: string }) => {
+      alert(errMsg || "Could not join room");
+      navigate("/");
+    });
+
+    // handle other user's disconnection via a system message within chat
+    socket.on("user_disconnected", () => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          text: "Your partner has disconnected.",
+          isSystem: true,
+        },
+      ]);
+    });
+
+    socket.emit("join_room", roomId, {
+      id: currentUserId,
+      username: currentUsername,
+    });
+
     return () => {
+      // Notify server of voluntary leave
+      socket.emit("leave_room");
+
       socket.off("load_messages");
       socket.off("receive_message");
       socket.off("room_ended");
+      socket.off("join_error");
+      socket.off("user_disconnected");
     };
-  }, [roomId, currentUsername, navigate]);
+  }, [roomId, currentUsername, currentUserId, navigate]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -96,6 +123,15 @@ export default function Chat({
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-3 mb-4 px-2">
         {messages.map((msg, i) => {
+          if (msg.isSystem) {
+            return (
+              <div key={i} className="flex justify-center">
+                <p className="text-xs text-default-400 italic px-2 py-1">
+                  {msg.text}
+                </p>
+              </div>
+            );
+          }
           const isSent = isSentMessage(msg);
           return (
             <div
@@ -112,7 +148,7 @@ export default function Chat({
                   className={`max-w-xs break-words p-3 rounded-lg ${
                     isSent
                       ? "bg-primary text-primary-foreground rounded-br-none"
-                        : "bg-default-200 text-default-900 rounded-bl-none"
+                      : "bg-default-200 text-default-900 rounded-bl-none"
                   }`}
                 >
                   {msg.text}

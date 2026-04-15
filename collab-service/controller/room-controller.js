@@ -10,8 +10,8 @@ export function createRoomController(io) {
    */
   const createRoom = async (req, res) => {
     const id = uuidv4();
-    const { questionId = null } = req.body ?? {};
-    const room = await CollabRoomModel.create(id, questionId);
+    const { questionId = null, allowedUsers = [] } = req.body ?? {};
+    const room = await CollabRoomModel.create(id, questionId, allowedUsers);
 
     res.json({ roomId: room.roomId, questionId: room.questionId });
   };
@@ -42,6 +42,10 @@ export function createRoomController(io) {
       });
     } else if (error === "Room is full") {
       return res.status(403).json({ error: "Room full" });
+    } else if (error === "Room already ended") {
+      return res.status(410).json({ error: "Room already ended" });
+    } else if (error === "User not allowed") {
+      return res.status(403).json({ error: "User not allowed" });
     } else {
       return res.status(404).json({ error: "Room not found" });
     }
@@ -72,14 +76,18 @@ export function createRoomController(io) {
   const endRoom = async (req, res) => {
     const { roomId } = req.params;
 
+    const room = await CollabRoomModel.findById(roomId);
+    if (!room) {
+      return res.status(404).json({ error: "Room not found" });
+    }
+
     io.to(roomId).emit("room_ended");
 
-    await finalizeRoom(roomId);
     await CollabRoomModel.endRoom(roomId);
+    await finalizeRoom(roomId);
 
     res.json({ success: true });
   };
 
   return { createRoom, joinRoom, getRoom, endRoom };
 }
-

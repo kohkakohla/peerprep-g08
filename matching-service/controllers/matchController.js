@@ -3,7 +3,7 @@ const { getQueueKeys } = require('../utils/queueKeys');
 const { socketState, findQueues, cleanupSocket } = require('../services/matchingService');
 
 const handleFindMatch = async (io, socket, data) => {
-  const { languages, topics, difficulty } = data;
+  const { username, languages, topics, difficulty } = data;
   const userId = socket.userId; // sourced from verified JWT, not client payload
 
   // Basic validation
@@ -22,17 +22,18 @@ const handleFindMatch = async (io, socket, data) => {
   const criteria = { languages, topics, difficulty };
 
   // This allows me to search for user in queue in one lookup
-  const serializedEntry = JSON.stringify({ socketId: socket.id, userId });
+  const serializedEntry = JSON.stringify({ socketId: socket.id, userId, username: username || '' });
 
   // Mark this user as actively waiting in Redis so concurrent match attempts
   await redisClient.set(`user_state:${userId}`, 'WAITING', { EX: 300 });
 
   socketState.set(socket.id, {
     userId,
+    username: username || '',
     serializedEntry,
     queues: new Set(),
-    relaxationTimers: [],   
-    statusInterval: null,  
+    relaxationTimers: [],
+    statusInterval: null,
     startedAt: Date.now(),
     relaxationLevel: 0,
     criteria,

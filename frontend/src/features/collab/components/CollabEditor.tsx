@@ -63,7 +63,7 @@ function injectCursorStyle(clientId: number, color: string, name: string) {
 
 export default function CollabEditor({
   roomId,
-  language = "python",
+  language = "javascript",
   readOnly = false,
   username,
   onCodeChange,
