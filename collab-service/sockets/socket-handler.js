@@ -1,4 +1,5 @@
 import CollabRoomModel from "../model/collab-room-model.js";
+import { getAIHelp } from "../services/ai-service.js";
 
 // roomId : Map<userId, socketId>
 // to keep track of currently active connections to handle reconnects/disconnects etc
@@ -24,12 +25,20 @@ export default function socketHandler(io) {
         return;
       }
 
+      // Check if room has ended
+      const isEnded = await CollabRoomModel.isRoomEnded(roomId);
+      if (isEnded) {
+        socket.emit("room_ended", {
+          message: "This room has ended and cannot be joined",
+        });
+        return;
+      }
+
       if (!activeConnections.has(roomId)) {
         activeConnections.set(roomId, new Map());
       }
       const roomConnections = activeConnections.get(roomId);
 
-      // TODO: implement this listener in frontend
       if (roomConnections.has(userId)) {
         socket.emit("join_error", {
           message: "Already connected in another tab",
@@ -50,10 +59,7 @@ export default function socketHandler(io) {
 
     socket.on(
       "send_message",
-      async ({ roomId, message, senderUsername, senderId } = {}) => {
-        // TODO: add an "error" event here, and a listener to the "error" event in frontend in case of no room ID
-        if (!roomId) return;
-
+      async ({ roomId, message, senderUsername, senderId, codeContext }) => {
         const msg = {
           id: Date.now(),
           text: message,
@@ -63,6 +69,70 @@ export default function socketHandler(io) {
 
         await CollabRoomModel.addMessage(roomId, msg);
 
+        // Broadcast user's message to all users in the room FIRST
+        io.to(roomId).emit("receive_message", msg);
+
+        // Check if message is an AI request
+        if (message.trim().toLowerCase().startsWith("@ai")) {
+          // Emit a typing indicator to other users
+          io.to(roomId).emit("ai_processing");
+
+          try {
+            // Get AI response
+            const aiResult = await getAIHelp(
+              message,
+              senderId || socket.id,
+              roomId,
+              codeContext || "",
+            );
+
+            if (aiResult.success) {
+              // Create AI response message
+              const aiMsg = {
+                id: Date.now(),
+                text: aiResult.response,
+                senderUsername: "AI Assistant",
+                senderId: "ai-assistant",
+                isAI: true,
+              };
+
+              // Save AI response to database
+              await CollabRoomModel.addMessage(roomId, aiMsg);
+
+              // Broadcast AI response to all users in the room
+              io.to(roomId).emit("receive_message", aiMsg);
+            } else {
+              // Send error message as AI Assistant
+              const errorMsg = {
+                id: Date.now(),
+                text: `⚠️ **AI Assistant**: ${aiResult.error}`,
+                senderUsername: "AI Assistant",
+                senderId: "ai-assistant",
+                isAI: true,
+                isError: true,
+              };
+
+              io.to(roomId).emit("receive_message", errorMsg);
+            }
+          } catch (error) {
+            console.error(
+              "[Socket Handler] Error processing AI request:",
+              error,
+            );
+
+            // Send error message
+            const errorMsg = {
+              id: Date.now(),
+              text: "⚠️ **AI Assistant**: An unexpected error occurred. Please try again.",
+              senderUsername: "AI Assistant",
+              senderId: "ai-assistant",
+              isAI: true,
+              isError: true,
+            };
+
+            io.to(roomId).emit("receive_message", errorMsg);
+          }
+        }
         io.to(roomId).emit("receive_message", msg);
       },
     );

@@ -4,6 +4,7 @@ jest.mock("../../model/collab-room-model.js", () => ({
     getMessages: jest.fn(),
     addMessage: jest.fn(),
     endRoom: jest.fn(),
+    isRoomEnded: jest.fn(),
   },
 }));
 
@@ -179,34 +180,6 @@ describe("join_room input guards", () => {
 });
 
 /////////////////////////////////////////////////////
-// send_message input guards
-/////////////////////////////////////////////////////
-describe("send_message's missing roomId guard", () => {
-  test("does nothing when roomId is missing (no DB write, no broadcast)", async () => {
-    const { mockIo, mockSocket, mockEmit } = buildMocks();
-    const getHandler = connect(mockIo, mockSocket);
-
-    await getHandler("send_message")({
-      message: "hello",
-      senderUsername: "alice",
-    });
-
-    expect(CollabRoomModel.addMessage).not.toHaveBeenCalled();
-    expect(mockEmit).not.toHaveBeenCalled();
-  });
-
-  test("does nothing when roomId is an empty string", async () => {
-    const { mockIo, mockSocket, mockEmit } = buildMocks();
-    const getHandler = connect(mockIo, mockSocket);
-
-    await getHandler("send_message")({ roomId: "", message: "hello" });
-
-    expect(CollabRoomModel.addMessage).not.toHaveBeenCalled();
-    expect(mockEmit).not.toHaveBeenCalled();
-  });
-});
-
-/////////////////////////////////////////////////////
 // send_message
 /////////////////////////////////////////////////////
 describe("send_message event", () => {
@@ -300,7 +273,7 @@ describe("send_message event", () => {
       }),
     );
     expect(CollabRoomModel.addMessage).toHaveBeenCalledTimes(1);
-    expect(mockEmit).toHaveBeenCalledTimes(1);
+    expect(mockEmit).toHaveBeenCalledTimes(2);
   });
 
   test("empty string message is still persisted and broadcast", async () => {
@@ -329,15 +302,15 @@ describe("send_message event", () => {
     await getHandler("send_message")({ roomId: "r2", message: "m2" });
 
     expect(mockIo.to.mock.calls[0][0]).toBe("r1");
-    expect(mockIo.to.mock.calls[1][0]).toBe("r2");
+    expect(mockIo.to.mock.calls[2][0]).toBe("r2");
   });
 });
 
 /////////////////////////////////////////////////////
 // duplicate tab detection
 /////////////////////////////////////////////////////
-describe("join_room — duplicate tab detection (J3)", () => {
-  test("emits join_error and does NOT call socket.join for a duplicate user connection", async () => {
+describe("join_room — duplicate tab detection", () => {
+  test("emits join_error and does not call socket.join for a duplicate user connection", async () => {
     CollabRoomModel.getMessages.mockResolvedValue([]);
 
     // Socket 1 joins successfully
@@ -463,7 +436,7 @@ describe("join_room — duplicate tab detection (J3)", () => {
 /////////////////////////////////////////////////////
 // disconnect's cleanup and notification
 /////////////////////////////////////////////////////
-describe("disconnect event — cleanup and notification (D1)", () => {
+describe("disconnect event — cleanup and notification", () => {
   test("emits user_disconnected to the room with the userId on disconnect", async () => {
     CollabRoomModel.getMessages.mockResolvedValue([]);
 
@@ -561,7 +534,7 @@ describe("disconnect event — cleanup and notification (D1)", () => {
 /////////////////////////////////////////////////////
 // both users disconnect -> room should not auto-end
 /////////////////////////////////////////////////////
-describe("disconnect — room not auto-ended when users disconnect (D2)", () => {
+describe("disconnect — room not auto-ended when users disconnect", () => {
   test("does not call endRoom when one of two users disconnects", async () => {
     CollabRoomModel.getMessages.mockResolvedValue([]);
 

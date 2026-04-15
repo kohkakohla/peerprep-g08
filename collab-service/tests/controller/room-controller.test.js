@@ -7,6 +7,7 @@ jest.mock("../../model/collab-room-model.js", () => ({
     findById: jest.fn(),
     addUserToRoom: jest.fn(),
     endRoom: jest.fn(),
+    isRoomEnded: jest.fn(),
   },
 }));
 
