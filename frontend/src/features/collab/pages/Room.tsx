@@ -14,7 +14,6 @@ import {
 } from "@heroui/react";
 
 import { joinRoom, endRoom } from "../services/api";
-import { getCurrentUser } from "../../user/api/auth";
 import { RoomLayoutProvider } from "../context/RoomLayoutProvider";
 import SplitPaneLayout, { PanelToggleButtons } from "../components/SplitPane";
 import QuestionPanel from "../components/QuestionPanel";
@@ -49,47 +48,6 @@ export default function Room() {
 
   // Latest editor content snapshot, used as AI context for @AI chat requests.
   const [codeContext, setCodeContext] = useState("");
-  // Get current user data from localStorage
-  const getUserFromStorage = () => {
-    const userData = localStorage.getItem("userData");
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData);
-        return { username: parsed.username || "", id: parsed.id || "" };
-      } catch {
-        return { username: "", id: "" };
-      }
-    }
-    return { username: "", id: "" };
-  };
-
-  const [currentUser] = useState<{ username: string; id: string }>(
-    getUserFromStorage(),
-  );
-
-  // ── Fetch fresh user data from /auth/me on mount ────────────────────────────
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await getCurrentUser();
-        // Store fresh user data in localStorage
-        localStorage.setItem(
-          "userData",
-          JSON.stringify({
-            id: response.data.id,
-            username: response.data.username,
-            email: response.data.email,
-            isAdmin: response.data.isAdmin,
-          }),
-        );
-      } catch (error) {
-        console.warn("Failed to fetch current user data:", error);
-        // Continue anyway - we have data from login, this is just a refresh
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
 
   useEffect(() => {
     if (!isLoading && (isError || !user)) {
@@ -213,8 +171,8 @@ export default function Room() {
               <PanelErrorBoundary fallbackLabel="Chat panel error">
                 <ChatPanel
                   roomId={id!}
-                  currentUsername={currentUser.username}
-                  currentUserId={currentUser.id}
+                  currentUsername={user.username}
+                  currentUserId={user.id}
                   codeContext={codeContext}
                 />
               </PanelErrorBoundary>

@@ -52,7 +52,15 @@ export default function MatchingPage() {
 
     newSocket.on("connect_error", (err: Error) => {
       console.error("Socket connection error:", err.message);
-      setError("Failed to connect to matching service. Please log in again.");
+      const isAuthError =
+        err.message.includes("Authentication") ||
+        err.message.includes("token") ||
+        err.message.includes("expired");
+      setError(
+        isAuthError
+          ? `Authentication failed: ${err.message}. Please log out and log in again.`
+          : `Failed to connect to matching service: ${err.message}`
+      );
     });
 
     newSocket.on(
