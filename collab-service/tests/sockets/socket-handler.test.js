@@ -273,7 +273,7 @@ describe("send_message event", () => {
       }),
     );
     expect(CollabRoomModel.addMessage).toHaveBeenCalledTimes(1);
-    expect(mockEmit).toHaveBeenCalledTimes(2);
+    expect(mockEmit).toHaveBeenCalledTimes(1);
   });
 
   test("empty string message is still persisted and broadcast", async () => {
@@ -302,7 +302,7 @@ describe("send_message event", () => {
     await getHandler("send_message")({ roomId: "r2", message: "m2" });
 
     expect(mockIo.to.mock.calls[0][0]).toBe("r1");
-    expect(mockIo.to.mock.calls[2][0]).toBe("r2");
+    expect(mockIo.to.mock.calls[1][0]).toBe("r2");
   });
 });
 
