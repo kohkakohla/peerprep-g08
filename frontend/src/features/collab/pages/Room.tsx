@@ -14,7 +14,6 @@ import {
 } from "@heroui/react";
 
 import { joinRoom, endRoom } from "../services/api";
-import { getCurrentUser } from "../../user/api/auth";
 import { RoomLayoutProvider } from "../context/RoomLayoutProvider";
 import SplitPaneLayout, { PanelToggleButtons } from "../components/SplitPane";
 import QuestionPanel from "../components/QuestionPanel";
@@ -43,46 +42,12 @@ export default function Room() {
   const { data: user, isLoading, isError } = useUserProfile();
   const logout = useLogout();
 
-  const [language, setLanguage] = useState("python");
+  const language = "python";
   const [roomReady, setRoomReady] = useState(false);
   const [questionId, setQuestionId] = useState<string | null>(null);
-  
-  // Get current user data from localStorage
-  const getUserFromStorage = () => {
-    const userData = localStorage.getItem("userData");
-    if (userData) {
-      try {
-        const parsed = JSON.parse(userData);
-        return { username: parsed.username || "", id: parsed.id || "" };
-      } catch {
-        return { username: "", id: "" };
-      }
-    }
-    return { username: "", id: "" };
-  };
-  
-  const [currentUser] = useState<{ username: string; id: string }>(getUserFromStorage());
 
-  // ── Fetch fresh user data from /auth/me on mount ────────────────────────────
-  useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const response = await getCurrentUser();
-        // Store fresh user data in localStorage
-        localStorage.setItem("userData", JSON.stringify({
-          id: response.data.id,
-          username: response.data.username,
-          email: response.data.email,
-          isAdmin: response.data.isAdmin,
-        }));
-      } catch (error) {
-        console.warn("Failed to fetch current user data:", error);
-        // Continue anyway - we have data from login, this is just a refresh
-      }
-    };
-
-    fetchCurrentUser();
-  }, []);
+  // Latest editor content snapshot, used as AI context for @AI chat requests.
+  const [codeContext, setCodeContext] = useState("");
 
   useEffect(() => {
     if (!isLoading && (isError || !user)) {
@@ -92,7 +57,7 @@ export default function Room() {
 
   // ── Join room & hydrate metadata ────────────────────────────────────────────
   useEffect(() => {
-    if (!id || isLoading) return;
+    if (!id || isLoading || !user) return;
 
     joinRoom(id, user)
       .then(({ data }) => {
@@ -100,14 +65,20 @@ export default function Room() {
         setRoomReady(true);
       })
       .catch((error) => {
-        if (error.response?.status === 403) {
+        const status = error.response?.status;
+        const errorBody = error.response?.data?.error;
+        if (status === 403 && errorBody === "User not allowed") {
+          alert("You are not authorised to join this room.");
+        } else if (status === 403) {
           alert("Room is full!");
+        } else if (status === 410) {
+          alert("Room has already ended.");
         } else {
           alert("Room does not exist!");
         }
         navigate("/");
       });
-  }, [id, isLoading, navigate]);
+  }, [id, isLoading, navigate, user]);
 
   // ── End room ────────────────────────────────────────────────────────────────
   const handleConfirmEnd = async (onClose: () => void) => {
@@ -186,18 +157,24 @@ export default function Room() {
             }
             editorPanel={
               <PanelErrorBoundary fallbackLabel="Editor panel error">
-                <EditorPanel language={language} onLanguageChange={setLanguage}>
+                <EditorPanel language={language}>
                   <CollabEditor
                     roomId={id!}
                     language={language}
                     username={user.username}
+                    onCodeChange={setCodeContext}
                   />
                 </EditorPanel>
               </PanelErrorBoundary>
             }
             chatPanel={
               <PanelErrorBoundary fallbackLabel="Chat panel error">
-                <ChatPanel roomId={id!} currentUsername={currentUser.username} currentUserId={currentUser.id} />
+                <ChatPanel
+                  roomId={id!}
+                  currentUsername={user.username}
+                  currentUserId={user.id}
+                  codeContext={codeContext}
+                />
               </PanelErrorBoundary>
             }
           />

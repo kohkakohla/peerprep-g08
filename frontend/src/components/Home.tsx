@@ -52,13 +52,13 @@ export default function Home() {
             <p className="text-white">Find a Match</p>
           </Button>
 
-          <Button
+          {/* <Button
             color="secondary"
             className="w-full text-center"
             onPress={() => navigate("/room")}
           >
-            <p className="text-white">Enter Collaboration (Dev)</p>
-          </Button>
+            <p className="text-white">Enter Collaboration</p>
+          </Button> */}
         </div>
       </div>
     </PageLayout>
